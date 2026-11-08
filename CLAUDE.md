@@ -24,7 +24,7 @@ npm run deploy           # publication réelle sur gh-pages
 - `src/core/` : logique pure, sans DOM ni `node:*`, partagée par le build, l'app, le backoffice et les tests. `payload.ts` assemble ce qui est publié ; `crypto.ts` utilise seulement WebCrypto et les flux standard, donc le même code chiffre dans Node et déchiffre dans le navigateur.
 - `src/build/` : `config.ts` est évalué à l'import (`.env`, chemins), `source.ts` lit `../connect-bank/out/<IBAN>/api/`, `rules-store.ts` lit/écrit `%APPDATA%\info-bank\rules.json` et `crypto.json`, `backoffice-api.ts` est un plugin Vite (`/api/data`, `/api/rules`).
 - `src/app/` : PWA ; `vite.config.ts` génère `sw.js` depuis `sw-template.js` et ajoute la CSP au build. `src/backoffice/` : servi par `vite.backoffice.config.ts`, jamais construit.
-- `scripts/nightly.ps1` : `connect-bank fetch` → `build:data` → `deploy` ; un échec de synchro est transmis par `IB_SYNC_ERROR` et affiché dans l'app.
+- `scripts/nightly.ps1` : `connect-bank fetch` → `build:data` → `deploy` ; un échec de synchro est transmis par `IB_SYNC_ERROR` et affiché dans l'app ; tout échec est signalé par mail (`scripts/notify.ps1`, SMTP configuré dans `.env`). `scripts/env.ps1` lit la configuration pour les scripts PowerShell.
 
 ## Règles essentielles
 

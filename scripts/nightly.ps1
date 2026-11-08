@@ -1,27 +1,11 @@
 ﻿# Traitement nocturne : synchro connect-bank -> données chiffrées -> publication GitHub Pages.
 # Lancé par le Planificateur de tâches (voir register-task.ps1). Journal : <IB_DATA_DIR>\logs.
 # Un échec de la synchro n'empêche pas la publication : l'app affiche alors un avertissement
-# avec les données précédentes.
+# avec les données précédentes. Chaque échec est aussi signalé par mail (notify.ps1).
 
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "env.ps1")
 Set-Location $root
-
-# Même ordre que src/build/config.ts : variable d'environnement, puis .env, puis défaut.
-function Get-EnvValue([string]$name, [string]$default) {
-  $fromEnv = [Environment]::GetEnvironmentVariable($name)
-  if ($fromEnv) { return $fromEnv.Trim() }
-  $envFile = Join-Path $root ".env"
-  if (Test-Path $envFile) {
-    foreach ($line in Get-Content $envFile -Encoding UTF8) {
-      if ($line -match "^\s*$name\s*=\s*(.*)$") {
-        $value = $Matches[1].Trim().Trim('"')
-        if ($value) { return $value }
-      }
-    }
-  }
-  return $default
-}
 
 $dataDir = Get-EnvValue "IB_DATA_DIR" (Join-Path $env:APPDATA "info-bank")
 $connectBank = Get-EnvValue "CONNECT_BANK_DIR" "..\connect-bank"
@@ -53,31 +37,76 @@ function Invoke-Step([string]$label, [string]$dir, [string[]]$command) {
   $output = @($output | ForEach-Object { "$_".TrimEnd() } | Where-Object { $_ -and $_ -ne "System.Management.Automation.RemoteException" })
   foreach ($line in $output) { Write-Log "  $line" }
   Write-Log "    code de sortie : $code"
-  return @{ Code = $code; Output = ($output | Out-String) }
+  return @{ Label = $label; Code = $code; Output = ($output | Out-String) }
+}
+
+# Motif d'échec d'une étape : sa première ligne « Erreur : … », à défaut son code de sortie.
+# Seule cette ligne part dans le mail, jamais la sortie complète (qui peut contenir des données).
+function Get-FailureReason($step) {
+  $reason = ($step.Output -split "`r?`n" | Where-Object { $_ -match "Erreur" } | Select-Object -First 1)
+  if (-not $reason) { return "code $($step.Code)" }
+  return ($reason -replace "^\s*Erreur\s*:\s*", "").Trim()
+}
+
+# Un échec de notification est journalisé mais ne change pas le résultat du traitement.
+function Send-Alert([string]$title, [string]$stepLabel, [string]$reason, [string]$hint) {
+  $lines = @(
+    ("Traitement nocturne info-bank du {0:dd/MM/yyyy HH:mm} : {1}." -f (Get-Date), $title),
+    "",
+    "Étape : $stepLabel",
+    "Motif : $reason"
+  )
+  if ($hint) { $lines += $hint }
+  $lines += @("", "Journal : $log")
+  try {
+    & (Join-Path $PSScriptRoot "notify.ps1") -Subject "info-bank : $title" -Body ($lines -join "`r`n")
+    Write-Log "    notification envoyée"
+  } catch {
+    $messages = @()
+    $e = $_.Exception
+    while ($e) { $messages += $e.Message; $e = $e.InnerException }
+    Write-Log "    notification impossible : $($messages -join ' / ')"
+  }
 }
 
 Write-Log "=== Début"
 
-# 1. Synchro bancaire (seule étape interactive de connect-bank : eb:link, tous les ~180 jours).
-$fetch = Invoke-Step "connect-bank fetch" $connectBank @("node", "src/cli.ts", "fetch")
-if ($fetch.Code -ne 0) {
-  $reason = ($fetch.Output -split "`r?`n" | Where-Object { $_ -match "Erreur" } | Select-Object -First 1)
-  if (-not $reason) { $reason = "code $($fetch.Code)" }
-  $env:IB_SYNC_ERROR = ($reason -replace "^Erreur\s*:\s*", "").Trim()
-} else {
-  Remove-Item Env:IB_SYNC_ERROR -ErrorAction SilentlyContinue
+try {
+  # 1. Synchro bancaire (seule étape interactive de connect-bank : eb:link, tous les ~180 jours).
+  $fetch = Invoke-Step "connect-bank fetch" $connectBank @("node", "src/cli.ts", "fetch")
+  if ($fetch.Code -ne 0) {
+    $env:IB_SYNC_ERROR = Get-FailureReason $fetch
+  } else {
+    Remove-Item Env:IB_SYNC_ERROR -ErrorAction SilentlyContinue
+  }
+
+  # 2. Données chiffrées, puis 3. publication.
+  $data = Invoke-Step "build:data" $root @("npm.cmd", "run", "--silent", "build:data")
+  if ($data.Code -ne 0) {
+    Write-Log "=== Échec (données)"
+    Send-Alert "échec de la génération des données" $data.Label (Get-FailureReason $data) "Le site garde les données de la veille."
+    exit $data.Code
+  }
+  $deploy = Invoke-Step "deploy" $root @("npm.cmd", "run", "--silent", "deploy")
+  if ($deploy.Code -ne 0) {
+    Write-Log "=== Échec (publication)"
+    Send-Alert "échec de la publication" $deploy.Label (Get-FailureReason $deploy) "Le site garde les données de la veille."
+    exit $deploy.Code
+  }
+
+  # Journaux de plus de 30 jours supprimés.
+  Get-ChildItem $logDir -Filter "nightly-*.log" |
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
+    Remove-Item -Force
+
+  if ($fetch.Code -ne 0) {
+    Write-Log "=== Terminé avec une synchro en échec"
+    Send-Alert "synchro bancaire en échec" $fetch.Label $env:IB_SYNC_ERROR "Données de la veille republiées. Consentement expiré ? Relancer eb:link dans connect-bank."
+    exit 2
+  }
+  Write-Log "=== Terminé"
+} catch {
+  Write-Log "=== Erreur inattendue : $($_.Exception.Message)"
+  Send-Alert "erreur inattendue" "nightly.ps1" $_.Exception.Message ""
+  exit 1
 }
-
-# 2. Données chiffrées, puis 3. publication.
-$data = Invoke-Step "build:data" $root @("npm.cmd", "run", "--silent", "build:data")
-if ($data.Code -ne 0) { Write-Log "=== Échec (données)"; exit $data.Code }
-$deploy = Invoke-Step "deploy" $root @("npm.cmd", "run", "--silent", "deploy")
-if ($deploy.Code -ne 0) { Write-Log "=== Échec (publication)"; exit $deploy.Code }
-
-# Journaux de plus de 30 jours supprimés.
-Get-ChildItem $logDir -Filter "nightly-*.log" |
-  Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
-  Remove-Item -Force
-
-if ($fetch.Code -ne 0) { Write-Log "=== Terminé avec une synchro en échec"; exit 2 }
-Write-Log "=== Terminé"

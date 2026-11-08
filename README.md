@@ -66,6 +66,12 @@ powershell -ExecutionPolicy Bypass -File scripts\register-task.ps1    # tâche q
 
 Codes de sortie : `0` tout s'est bien passé, `2` publié mais synchro en échec, autre valeur : échec du build ou de la publication.
 
+Chaque échec (synchro, données, publication, erreur inattendue) est aussi signalé par mail via `scripts/notify.ps1`, si `NOTIFY_FROM`, `NOTIFY_TO` et `NOTIFY_SMTP_PASSWORD` sont renseignés dans `.env` (voir `.env.example`). Le mail ne contient que l'étape, le motif et le chemin du journal. Un échec d'envoi est journalisé sans changer le code de sortie. Par défaut, l'envoi passe par le serveur MX Plan d'OVHcloud (`ssl0.ovh.net`, port 587 en STARTTLS) : `SmtpClient` ne gère pas le TLS implicite du port 465.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\notify.ps1 -Subject "Test" -Body "Essai"   # mail d'essai
+```
+
 ### Mise en ligne (une fois)
 
 1. Créer un dépôt GitHub public et l'ajouter en remote `origin` (ou renseigner `DEPLOY_REMOTE`).
@@ -100,4 +106,4 @@ La charte visuelle est décrite dans [DESIGN.md](DESIGN.md) et implémentée uni
 | `src/build/` | scripts Node : lecture de connect-bank, règles, `build-data`, `deploy`, API du backoffice |
 | `src/app/` | PWA Preact |
 | `src/backoffice/` | backoffice Preact (serveur de dev Vite uniquement) |
-| `scripts/` | traitement nocturne, tâche planifiée, génération des icônes |
+| `scripts/` | traitement nocturne, notification d'échec par mail, tâche planifiée, génération des icônes |
