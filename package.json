@@ -1,0 +1,35 @@
+{
+  "name": "info-bank",
+  "version": "0.1.0",
+  "description": "PWA mobile : solde, évolution et projection de fin de mois, données chiffrées",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:data": "node src/build/build-data.ts",
+    "deploy": "node src/build/deploy.ts",
+    "backoffice": "vite --config vite.backoffice.config.ts",
+    "icons": "node scripts/make-icons.ts",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check",
+    "format": "biome check --write"
+  },
+  "dependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/source-serif-4": "^5.3.1",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "preact": "^11.2.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6"
+  }
+}

@@ -1,0 +1,75 @@
+/* Seule implémentation de DESIGN.md : modifier ici et dans DESIGN.md ensemble. */
+@import "@fontsource-variable/fraunces/opsz.css";
+@import "@fontsource-variable/source-serif-4/opsz.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+:root {
+  color-scheme: light dark;
+
+  --paper: #f4eedf;
+  --paper-raised: #fbf7ec;
+  --paper-sunken: #eae2ce;
+  --rule: #d6cab0;
+  --rule-strong: #8f7f62;
+  --margin: #d99a8c;
+  --ink: #2a241e;
+  --ink-muted: #6a5e50;
+  --ink-credit: #2f6332;
+  --ink-debit: #9e2f24;
+  --ink-accent: #2a4a7f;
+  --ink-warning: #8a5a12;
+
+  --font-display: "Fraunces Variable", Georgia, serif;
+  --font-text: "Source Serif 4 Variable", Georgia, serif;
+  --font-figures: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-2xl: 28px;
+  --text-3xl: 40px;
+  --leading-text: 1.45;
+  --leading-figures: 1.1;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-1: 2px;
+  --radius-2: 4px;
+  --touch-min: 44px;
+  --control-compact: 36px;
+  --content-max: 520px;
+  --content-wide: 1200px;
+  --duration-fast: 150ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1d1b17;
+    --paper-raised: #26231e;
+    --paper-sunken: #161410;
+    --rule: #3a352d;
+    --rule-strong: #7a6f5e;
+    --margin: #6b3a32;
+    --ink: #ece3ce;
+    --ink-muted: #a89c86;
+    --ink-credit: #8cc08a;
+    --ink-debit: #e88a7c;
+    --ink-accent: #93b2e6;
+    --ink-warning: #d9a754;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+  }
+}

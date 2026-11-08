@@ -1,0 +1,96 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["**", "!**/*.md", "!package-lock.json"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80,
+    "lineEnding": "lf"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "style": {
+        "useNamingConvention": {
+          "level": "error",
+          "options": {
+            "conventions": [
+              { "selector": { "kind": "variable" }, "formats": ["camelCase"] },
+              {
+                "selector": { "kind": "functionParameter" },
+                "formats": ["camelCase"]
+              },
+              { "selector": { "kind": "function" }, "formats": ["camelCase"] },
+              {
+                "selector": { "kind": "classMember" },
+                "formats": ["camelCase"]
+              },
+              { "selector": { "kind": "class" }, "formats": ["PascalCase"] },
+              {
+                "selector": { "kind": "typeProperty" },
+                "formats": ["camelCase"]
+              }
+            ]
+          }
+        },
+        "useFilenamingConvention": {
+          "level": "error",
+          "options": { "filenameCases": ["kebab-case"] }
+        }
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useNamingConvention": {
+              "level": "error",
+              "options": {
+                "conventions": [
+                  {
+                    "selector": { "kind": "function" },
+                    "formats": ["camelCase", "PascalCase"]
+                  },
+                  {
+                    "selector": { "kind": "variable" },
+                    "formats": ["camelCase"]
+                  },
+                  {
+                    "selector": { "kind": "functionParameter" },
+                    "formats": ["camelCase"]
+                  },
+                  {
+                    "selector": { "kind": "classMember" },
+                    "formats": ["camelCase"]
+                  },
+                  {
+                    "selector": { "kind": "class" },
+                    "formats": ["PascalCase"]
+                  },
+                  {
+                    "selector": { "kind": "typeProperty" },
+                    "formats": ["camelCase"]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "javascript": { "formatter": { "quoteStyle": "double" } },
+  "assist": {
+    "enabled": true,
+    "actions": { "source": { "organizeImports": "on" } }
+  }
+}
