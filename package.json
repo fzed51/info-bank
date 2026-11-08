@@ -15,6 +15,7 @@
     "deploy": "node src/build/deploy.ts",
     "backoffice": "vite --config vite.backoffice.config.ts",
     "icons": "node scripts/make-icons.ts",
+    "backtest": "node scripts/backtest-projection.ts",
     "test": "node --test \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "biome check",

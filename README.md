@@ -102,7 +102,10 @@ npm run typecheck   # tsc --noEmit
 npm run lint        # Biome : lint, mise en forme, tri des imports (lecture seule)
 npm run format      # Biome : applique les corrections sûres
 npm run icons       # régénère le logo, la favicon et les icônes de public/icons (SVG et PNG)
+npm run backtest    # rejoue l'estimation des dépenses sur les mois complets (lit des données réelles, n'affiche que des %)
 ```
+
+`npm run backtest` compare les méthodes seules, la moyenne à poids égaux utilisée par l'app et des poids ajustés. Chaque mois est aussi laissé de côté à tour de rôle, pour voir si les poids ajustés tiennent sur un mois qu'ils n'ont pas vu. À relancer quand l'historique s'allonge, avant de changer les poids.
 
 La charte visuelle est décrite dans [DESIGN.md](DESIGN.md) et implémentée uniquement dans `src/app/styles/tokens.css`.
 
