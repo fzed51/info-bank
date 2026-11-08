@@ -19,7 +19,13 @@ connect-bank fetch ──► ../connect-bank/out/<IBAN>/api/{transactions,balanc
 
 - **Solde** : dernier solde provisoire (`XPCD`, qui inclut les opérations en cours), à défaut le solde comptable.
 - **Évolution** : solde quotidien reconstruit à rebours depuis ce solde (12 mois au plus, limité à l'historique de connect-bank).
-- **Fin de mois estimée** = solde + opérations prévues pas encore passées + dépense courante moyenne × jours restants. La dépense courante est la moyenne des débits **non rattachés à une règle** sur les 3 derniers mois complets (hors règles « à ignorer », comme les virements entre vos comptes).
+- **Fin de mois estimée** = solde + opérations prévues pas encore passées + dépenses courantes jusqu'à la fin du mois. Les dépenses courantes ne comptent que les débits **non rattachés à une règle** (ni aux règles « à ignorer », comme les virements entre vos comptes). Elles sont la moyenne de quatre estimations pour les jours restants :
+  1. moyenne journalière des 90 derniers jours glissants ;
+  2. moyenne journalière du même mois de l'année précédente, s'il est couvert en entier ;
+  3. par jour de la semaine : pour chaque jour restant, moyenne des débits de ce jour de la semaine sur les 12 derniers mois (2 lundis restants → 2 × moyenne des lundis) ;
+  4. par jour du mois : pour chaque jour restant, moyenne des débits de ce numéro de jour sur les 12 derniers mois (restent le 29 et le 30 → moyenne des 29 + moyenne des 30).
+
+  Une fenêtre plus longue que l'historique commence à la première opération connue ; une méthode sans assez d'historique est écartée de la moyenne. Les périodes s'arrêtent la veille de la date du solde, et ce jour compte parmi les jours restants : la synchro tourne la nuit et les paiements sont comptabilisés au plus tôt le lendemain, donc ses dépenses ne sont pas encore dans le solde. Le bouton « ? » de l'app détaille chaque méthode.
 - **Opérations prévues** : une règle décrit un libellé, un montant (fixe ± tolérance, ou variable avec bornes) et un calendrier (jour ± tolérance ; tous les mois, un mois sur N, d'un mois à un autre, mois choisis, avec début et fin facultatifs). Statuts : passée, à venir, en retard, ignorée.
 
 ## Prérequis

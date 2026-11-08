@@ -41,6 +41,17 @@ const fromUtc = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 export const addDays = (date: string, n: number): string =>
   fromUtc(toUtc(date) + n * dayMs);
 
+/** Même jour `n` mois plus tard (ou plus tôt), ramené au dernier jour des mois plus courts. */
+export function addMonthsToDate(date: string, n: number): string {
+  const period = addMonths(periodOf(date), n);
+  const day = Math.min(Number(date.slice(8, 10)), daysInMonth(period));
+  return `${period}-${pad(day)}`;
+}
+
+/** Jour de la semaine, de 0 (dimanche) à 6 (samedi). */
+export const weekdayOf = (date: string): number =>
+  new Date(toUtc(date)).getUTCDay();
+
 /** Nombre de jours de `from` à `to`. */
 export const daysBetween = (from: string, to: string): number =>
   Math.round((toUtc(to) - toUtc(from)) / dayMs);

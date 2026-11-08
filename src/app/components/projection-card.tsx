@@ -1,7 +1,17 @@
 import { useState } from "preact/hooks";
-import { estimateMonths } from "../../core/projection.ts";
-import type { PayloadAccount, Projection } from "../../core/types.ts";
-import { amountClass, formatCents, formatShortDate } from "../format.ts";
+import { patternMonths, rollingDays } from "../../core/projection.ts";
+import type {
+  PayloadAccount,
+  Projection,
+  SpendingMethod,
+  SpendingMethodKind,
+} from "../../core/types.ts";
+import {
+  amountClass,
+  formatCents,
+  formatMonthLong,
+  formatShortDate,
+} from "../format.ts";
 
 interface Props {
   account: PayloadAccount;
@@ -10,12 +20,41 @@ interface Props {
 const plural = (n: number, word: string): string =>
   `${n} ${word}${n > 1 ? "s" : ""}`;
 
+const methodTitles: Record<SpendingMethodKind, string> = {
+  rolling: `Moyenne des ${rollingDays} derniers jours`,
+  lastYear: "Même mois l'an dernier",
+  weekday: "Par jour de la semaine",
+  monthDay: "Par jour du mois",
+};
+
+/** Période et base d'une méthode, ou raison de son exclusion. */
+function methodDetail(m: SpendingMethod, currency: string): string {
+  const daily =
+    m.days > 0
+      ? ` · ${formatCents(Math.round(m.totalCents / m.days), currency)}/j`
+      : "";
+  if (m.kind === "lastYear") {
+    const month = formatMonthLong(m.to.slice(0, 7));
+    return m.estimateCents === undefined
+      ? `${month} : historique incomplet`
+      : `${month}${daily}`;
+  }
+  if (m.estimateCents === undefined) return "historique trop court";
+  // Fenêtre raccourcie : elle commence à la première opération connue du compte.
+  const since = `depuis le ${formatShortDate(m.from)} (${m.days} j)`;
+  if (m.kind === "rolling")
+    return m.partial
+      ? `${since}${daily}`
+      : `${formatShortDate(m.from)} → ${formatShortDate(m.to)}${daily}`;
+  return m.partial ? since : `sur ${patternMonths} mois`;
+}
+
 /** Explique d'où vient la dépense moyenne journalière (bouton « ? »). */
 function SpendingHelp({ p, currency }: { p: Projection; currency: string }) {
-  const b = p.basis;
+  const b = p.spending;
   const end = (
     <div class="help-row">
-      <dt>Jusqu'à la fin du mois</dt>
+      <dt>Jusqu'à la fin du mois, aujourd'hui compris</dt>
       <dd class="amount">
         {formatCents(p.dailyEstimateCents, currency)} × {p.daysRemaining} j ={" "}
         {formatCents(p.estimateCents, currency, true)}
@@ -32,36 +71,44 @@ function SpendingHelp({ p, currency }: { p: Projection; currency: string }) {
         <dl class="help-table">{end}</dl>
       </>
     );
-  if (b.days === 0)
+  const used = b.methods.filter((m) => m.estimateCents !== undefined);
+  if (used.length === 0)
     return <p>Pas encore d'historique : aucune estimation possible.</p>;
   return (
     <>
       <p>
-        {b.partial
-          ? "Moyenne des débits depuis la première opération connue du compte."
-          : `Moyenne des débits des ${estimateMonths} derniers mois complets.`}
+        Moyenne de plusieurs estimations des dépenses d'ici la fin du mois. Une
+        méthode sans assez d'historique est écartée.
       </p>
       <dl class="help-table">
-        <div class="help-row">
-          <dt>Période</dt>
-          <dd class="figures">
-            {formatShortDate(b.from)} → {formatShortDate(b.to)} · {b.days} j
-          </dd>
-        </div>
-        <div class="help-row">
-          <dt>
-            {plural(b.count, "débit")} retenu{b.count > 1 ? "s" : ""}
-          </dt>
-          <dd class={amountClass(b.totalCents)}>
-            {formatCents(b.totalCents, currency, true)}
-          </dd>
-        </div>
-        <div class="help-row">
-          <dt>Moyenne par jour</dt>
-          <dd class="amount">
-            ÷ {b.days} j = {formatCents(p.dailyEstimateCents, currency)}
-          </dd>
-        </div>
+        {b.methods.map((m) => (
+          <div class="help-row" key={m.kind}>
+            <dt>
+              {methodTitles[m.kind]}
+              <br />
+              <span class="muted">{methodDetail(m, currency)}</span>
+            </dt>
+            {m.estimateCents === undefined ? (
+              <dd class="muted">écartée</dd>
+            ) : (
+              <dd class={amountClass(m.estimateCents)}>
+                {formatCents(m.estimateCents, currency, true)}
+              </dd>
+            )}
+          </div>
+        ))}
+        {p.daysRemaining > 0 && (
+          <div class="help-row">
+            <dt>
+              {used.length > 1
+                ? `Moyenne des ${used.length} méthodes ÷ ${p.daysRemaining} j`
+                : `÷ ${p.daysRemaining} j`}
+            </dt>
+            <dd class="amount">
+              {formatCents(p.dailyEstimateCents, currency)}/j
+            </dd>
+          </div>
+        )}
         {end}
       </dl>
       <p class="muted">

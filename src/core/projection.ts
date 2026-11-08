@@ -1,9 +1,10 @@
 import {
   addDays,
   addMonths,
-  daysBetween,
+  addMonthsToDate,
   daysInMonth,
   periodOf,
+  weekdayOf,
 } from "./dates.ts";
 import { labelMatches } from "./labels.ts";
 import type {
@@ -11,17 +12,42 @@ import type {
   Projection,
   RecurringRule,
   SpendingBasis,
+  SpendingMethod,
+  SpendingMethodKind,
   Tx,
 } from "./types.ts";
 
-/** Nombre de mois complets servant à estimer les dépenses courantes. */
-export const estimateMonths = 3;
+/** Fenêtre glissante de la moyenne journalière, en jours. */
+export const rollingDays = 90;
+/** Profondeur des moyennes par jour de la semaine et par jour du mois, en mois. */
+export const patternMonths = 12;
 
 /**
- * Dépense courante moyenne par jour (négative), sur les `estimateMonths` mois complets
- * précédant `asOf` : débits non rattachés à une règle récurrente (`excluded`) et ne
- * relevant pas d'une règle « ignorer ». La fenêtre commence au plus tôt à la première
- * opération connue du compte. Rend aussi la base du calcul, affichée dans l'app.
+ * Jours restants jusqu'à la fin du mois, `asOf` compris : la synchro tourne la nuit et les
+ * paiements sont comptabilisés au plus tôt le lendemain, donc les dépenses du jour du
+ * solde ne sont pas encore dans le solde.
+ */
+export const remainingDays = (asOf: string): number =>
+  daysInMonth(periodOf(asOf)) - Number(asOf.slice(8, 10)) + 1;
+
+/** Dates de `from` à `to` incluses (vide si `from` est postérieure). */
+function eachDay(from: string, to: string): string[] {
+  const out: string[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+
+/** Arrondi au centime, sans « −0 ». */
+const roundCents = (x: number): number => Math.round(x) + 0;
+
+/**
+ * Dépense courante estimée jusqu'à la fin du mois de `asOf`, moyenne de quatre méthodes
+ * (voir `SpendingMethodKind`). Seuls comptent les débits jusqu'à la veille de `asOf`
+ * (le jour du solde est encore incomplet), non rattachés à une règle récurrente (`excluded`) et ne relevant pas d'une règle « ignorer ».
+ * Une fenêtre commence au plus tôt à la première opération connue du compte ; le même mois
+ * de l'année précédente n'est retenu que s'il est couvert en entier, et une moyenne par
+ * jour n'est retenue que si chaque jour restant a au moins un jour de référence.
+ * Rend la moyenne par jour (négative) et la base du calcul, affichée dans l'app.
  */
 export function dailySpending(
   txs: Tx[],
@@ -29,41 +55,129 @@ export function dailySpending(
   excluded: ReadonlySet<string>,
   asOf: string,
 ): { dailyCents: number; basis: SpendingBasis } {
-  const period = periodOf(asOf);
-  const to = addDays(`${period}-01`, -1);
-  const nominal = `${addMonths(period, -estimateMonths)}-01`;
   const first = txs.reduce<string | undefined>(
     (min, t) => (min === undefined || t.date < min ? t.date : min),
     undefined,
   );
-  const from = first !== undefined && first > nominal ? first : nominal;
-  const days = first === undefined ? 0 : Math.max(0, daysBetween(from, to) + 1);
-  const basis: SpendingBasis = {
-    from,
-    to,
-    days,
-    partial: from !== nominal,
-    count: 0,
-    totalCents: 0,
-    excludedCount: 0,
-  };
-  if (days === 0) return { dailyCents: 0, basis };
+  // Fenêtres arrêtées à la veille : le jour du solde est presque vide à l'heure de la synchro.
+  const end = addDays(asOf, -1);
+  const lastYear = addMonths(periodOf(asOf), -12);
+  const lastYearFrom = `${lastYear}-01`;
+  const lastYearTo = addDays(`${addMonths(lastYear, 1)}-01`, -1);
+  const rollingFrom = addDays(end, -(rollingDays - 1));
+  const patternFrom = addMonthsToDate(asOf, -patternMonths);
+
+  // Débits retenus et écartés, par jour.
   const ignored = rules.filter((r) => r.active && r.kind === "ignore");
+  const days = new Map<
+    string,
+    { cents: number; count: number; excluded: number }
+  >();
   for (const t of txs) {
-    if (t.cents >= 0 || t.date < from || t.date > to) continue;
+    if (t.cents >= 0 || t.date < lastYearFrom || t.date > end) continue;
+    const day = days.get(t.date) ?? { cents: 0, count: 0, excluded: 0 };
+    days.set(t.date, day);
     if (
       excluded.has(t.id) ||
       ignored.some(
         (r) => r.account === t.account && labelMatches(r.match, t.label),
       )
     ) {
-      basis.excludedCount++;
+      day.excluded++;
       continue;
     }
-    basis.count++;
-    basis.totalCents += t.cents;
+    day.count++;
+    day.cents += t.cents;
   }
-  return { dailyCents: Math.round(basis.totalCents / days), basis };
+  const debitOn = (d: string): number => days.get(d)?.cents ?? 0;
+
+  const window = (
+    kind: SpendingMethodKind,
+    nominalFrom: string,
+    to: string,
+  ): { method: SpendingMethod; dates: string[] } => {
+    // Sans historique dans la fenêtre, elle garde ses bornes nominales et reste vide.
+    const covered = first !== undefined && first <= to;
+    const from = covered && first > nominalFrom ? first : nominalFrom;
+    const dates = covered ? eachDay(from, to) : [];
+    const method: SpendingMethod = {
+      kind,
+      from,
+      to,
+      days: dates.length,
+      partial: !covered || from !== nominalFrom,
+      count: 0,
+      totalCents: 0,
+    };
+    for (const d of dates) {
+      method.count += days.get(d)?.count ?? 0;
+      method.totalCents += debitOn(d);
+    }
+    return { method, dates };
+  };
+
+  const remaining = remainingDays(asOf);
+  const future = eachDay(asOf, addDays(asOf, remaining - 1));
+  /** Somme, sur les jours restants, de la moyenne des jours de référence de même clé. */
+  const byKey = (
+    dates: string[],
+    key: (d: string) => number,
+  ): number | undefined => {
+    const n = new Map<number, number>();
+    const sum = new Map<number, number>();
+    for (const d of dates) {
+      const k = key(d);
+      n.set(k, (n.get(k) ?? 0) + 1);
+      sum.set(k, (sum.get(k) ?? 0) + debitOn(d));
+    }
+    let total = 0;
+    for (const d of future) {
+      const k = key(d);
+      const count = n.get(k);
+      if (!count) return undefined;
+      total += (sum.get(k) ?? 0) / count;
+    }
+    return total;
+  };
+
+  const rolling = window("rolling", rollingFrom, end);
+  const sameMonth = window("lastYear", lastYearFrom, lastYearTo);
+  const weekday = window("weekday", patternFrom, end);
+  const monthDay = window("monthDay", patternFrom, end);
+  const perDay = (m: SpendingMethod): number =>
+    (m.totalCents / m.days) * remaining;
+  const estimates: [SpendingMethod, number | undefined][] = [
+    [
+      rolling.method,
+      rolling.method.days > 0 ? perDay(rolling.method) : undefined,
+    ],
+    [
+      sameMonth.method,
+      sameMonth.method.days > 0 && !sameMonth.method.partial
+        ? perDay(sameMonth.method)
+        : undefined,
+    ],
+    [weekday.method, byKey(weekday.dates, weekdayOf)],
+    [monthDay.method, byKey(monthDay.dates, (d) => Number(d.slice(8, 10)))],
+  ];
+  const methods = estimates.map(([m, e]) =>
+    e === undefined ? m : { ...m, estimateCents: roundCents(e) },
+  );
+  const used = estimates.flatMap(([m, e]) =>
+    e === undefined ? [] : [{ m, e }],
+  );
+
+  // Débits écartés sur l'union des fenêtres retenues (elles se chevauchent jusqu'à la veille).
+  let excludedCount = 0;
+  if (used.length > 0) {
+    const from = used.map(({ m }) => m.from).sort()[0];
+    for (const [d, day] of days) if (d >= from) excludedCount += day.excluded;
+  }
+  const mean = used.reduce((s, { e }) => s + e, 0) / (used.length || 1);
+  return {
+    dailyCents: roundCents(mean / remaining),
+    basis: { methods, excludedCount },
+  };
 }
 
 /**
@@ -84,7 +198,7 @@ export function projectEndOfMonth(
       (o.status === "a-venir" || o.status === "en-retard"),
   );
   const plannedCents = remaining.reduce((s, o) => s + o.expectedCents, 0);
-  const daysRemaining = daysInMonth(period) - Number(asOf.slice(8, 10));
+  const daysRemaining = remainingDays(asOf);
   const estimateCents = dailyEstimateCents * daysRemaining;
   return {
     balanceCents,
@@ -94,13 +208,13 @@ export function projectEndOfMonth(
     dailyEstimateCents,
     daysRemaining,
     endCents: balanceCents + plannedCents + estimateCents,
-    ...(basis ? { basis } : {}),
+    ...(basis ? { spending: basis } : {}),
   };
 }
 
 /** Somme de plusieurs projections (vue « Total »). */
 export function sumProjections(list: Projection[]): Projection {
-  const sum = (k: Exclude<keyof Projection, "basis">): number =>
+  const sum = (k: Exclude<keyof Projection, "spending">): number =>
     list.reduce((s, p) => s + p[k], 0);
   return {
     balanceCents: sum("balanceCents"),

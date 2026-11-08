@@ -115,22 +115,45 @@ export interface Projection {
   dailyEstimateCents: number;
   daysRemaining: number;
   endCents: number;
-  /** Base de calcul de la moyenne journalière (absente pour la vue « Total »). */
-  basis?: SpendingBasis;
+  /**
+   * Base de calcul des dépenses courantes (absente pour la vue « Total »). Anciennement
+   * `basis`, d'un autre format : une app encore en cache ignore ce nouveau champ.
+   */
+  spending?: SpendingBasis;
 }
 
-/** Comment la dépense courante moyenne a été obtenue (affiché dans l'app). */
-export interface SpendingBasis {
+/**
+ * Méthodes d'estimation des dépenses courantes jusqu'à la fin du mois :
+ * - `rolling` : moyenne journalière des 90 derniers jours ;
+ * - `lastYear` : moyenne journalière du même mois de l'année précédente ;
+ * - `weekday` : moyenne de chaque jour de la semaine sur 12 mois, pour les jours restants ;
+ * - `monthDay` : moyenne de chaque numéro de jour du mois sur 12 mois, pour les jours restants.
+ */
+export type SpendingMethodKind =
+  | "rolling"
+  | "lastYear"
+  | "weekday"
+  | "monthDay";
+
+export interface SpendingMethod {
+  kind: SpendingMethodKind;
   /** Fenêtre de calcul, bornes incluses (YYYY-MM-DD). */
   from: string;
   to: string;
   days: number;
   /** Fenêtre raccourcie : l'historique du compte commence après le début nominal. */
   partial: boolean;
-  /** Débits retenus. */
+  /** Débits retenus dans la fenêtre. */
   count: number;
   totalCents: number;
-  /** Débits de la fenêtre écartés (rattachés à une règle récurrente ou « ignorer »). */
+  /** Dépense estimée jusqu'à la fin du mois ; absente si la méthode est écartée faute d'historique. */
+  estimateCents?: number;
+}
+
+/** Comment la dépense courante a été estimée (affiché dans l'app). */
+export interface SpendingBasis {
+  methods: SpendingMethod[];
+  /** Débits écartés sur l'ensemble des fenêtres (rattachés à une règle récurrente ou « ignorer »). */
   excludedCount: number;
 }
 

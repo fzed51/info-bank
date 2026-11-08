@@ -10,7 +10,14 @@ import {
   newKdfParams,
   WrongKeyError,
 } from "../src/core/crypto.ts";
-import { addMonths, daysInMonth, periodRange } from "../src/core/dates.ts";
+import {
+  addDays,
+  addMonths,
+  addMonthsToDate,
+  daysInMonth,
+  periodRange,
+  weekdayOf,
+} from "../src/core/dates.ts";
 import { checkBookedBalance, dailyHistory } from "../src/core/history.ts";
 import {
   labelMatches,
@@ -19,7 +26,11 @@ import {
 } from "../src/core/labels.ts";
 import { matchOccurrences, ruleHits } from "../src/core/matching.ts";
 import { buildPayload, maskIban } from "../src/core/payload.ts";
-import { dailySpending, projectEndOfMonth } from "../src/core/projection.ts";
+import {
+  dailySpending,
+  projectEndOfMonth,
+  remainingDays,
+} from "../src/core/projection.ts";
 import { emptyRulesFile, validateRulesFile } from "../src/core/rules.ts";
 import { expectedDate, monthSpan } from "../src/core/schedule.ts";
 import { suggestRecurring } from "../src/core/suggest.ts";
@@ -65,6 +76,9 @@ test("Dates : fin de mois, ajout de mois, plage", () => {
   assert.equal(daysInMonth("2026-02"), 28);
   assert.equal(addMonths("2026-11", 3), "2027-02");
   assert.equal(addMonths("2026-01", -1), "2025-12");
+  assert.equal(addMonthsToDate("2028-02-29", -12), "2027-02-28");
+  assert.equal(addMonthsToDate("2026-11-08", -12), "2025-11-08");
+  assert.equal(weekdayOf("2026-11-08"), 0); // dimanche
   assert.deepEqual(periodRange("2026-11", "2027-01"), [
     "2026-11",
     "2026-12",
@@ -277,12 +291,29 @@ test("Historique : reconstruction à rebours et contrôle du solde comptable", (
   );
 });
 
-test("Projection : prévues restantes + dépenses courantes hors règles et hors « ignorer »", () => {
+/** Un débit par jour de `from` à `to`, montant choisi selon la date. */
+const dailyTxs = (
+  from: string,
+  to: string,
+  cents: (date: string) => number,
+): Tx[] => {
+  const out: Tx[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1))
+    out.push(tx(d, "CARTE", cents(d)));
+  return out;
+};
+
+test("Projection : moyenne des méthodes, hors règles et hors « ignorer »", () => {
+  // Le 28/11/2026 est un samedi : restent le samedi 28 (jour du solde, encore incomplet),
+  // le dimanche 29 et le lundi 30. Les fenêtres s'arrêtent la veille, le 27.
+  // Débits de carte : 40 € le dimanche, 10 € les autres jours, depuis le 01/09.
+  const cards = dailyTxs("2026-09-01", "2026-11-28", (d) =>
+    weekdayOf(d) === 0 ? -4000 : -1000,
+  );
   const txs = [
-    tx("2026-08-01", "CARTE A", -9200),
-    tx("2026-09-10", "CARTE B", -9200),
-    tx("2026-10-31", "VIR INTERNE EPARGNE", -50000),
+    ...cards,
     tx("2026-10-05", "PRLV LOYER", -80000),
+    tx("2026-10-31", "VIR INTERNE EPARGNE", -50000),
     tx("2026-10-20", "SALAIRE", 250000),
   ];
   const ignore = rule({
@@ -290,41 +321,93 @@ test("Projection : prévues restantes + dépenses courantes hors règles et hors
     kind: "ignore",
     match: { pattern: "VIR INTERNE", mode: "contains" },
   });
-  // Fenêtre : 01/08 → 31/10 = 92 jours ; seules les cartes comptent (le loyer est rattaché).
-  const { dailyCents: daily, basis } = dailySpending(
+  const loyer = txs[cards.length];
+  const { dailyCents, basis } = dailySpending(
     txs,
     [ignore],
-    new Set([txs[3].id]),
-    "2026-11-08",
+    new Set([loyer.id]),
+    "2026-11-28",
   );
-  assert.equal(daily, -200);
-  // Base affichée : fenêtre, débits retenus et écartés (loyer rattaché, virement ignoré).
-  assert.deepEqual(basis, {
-    from: "2026-08-01",
-    to: "2026-10-31",
-    days: 92,
-    partial: false,
-    count: 2,
-    totalCents: -18400,
-    excludedCount: 2,
+  const [rolling, lastYear, weekday, monthDay] = basis.methods;
+  // 90 jours glissants raccourcis à l'historique : 88 jours, dont 12 dimanches.
+  assert.deepEqual(rolling, {
+    kind: "rolling",
+    from: "2026-09-01",
+    to: "2026-11-27",
+    days: 88,
+    partial: true,
+    count: 88,
+    totalCents: -124000,
+    estimateCents: Math.round((-124000 / 88) * 3),
   });
+  // Novembre 2025 hors historique : méthode écartée.
+  assert.equal(lastYear.kind, "lastYear");
+  assert.equal(lastYear.estimateCents, undefined);
+  // Moyenne du samedi + moyenne du dimanche + moyenne du lundi.
+  assert.equal(weekday.estimateCents, -6000);
+  assert.equal(weekday.partial, true);
+  // Moyenne des 28, des 29 et des 30 (septembre et octobre).
+  assert.equal(monthDay.estimateCents, -3000);
+  // Loyer rattaché et virement ignoré écartés ; le salaire (crédit) ne compte pas.
+  assert.equal(basis.excludedCount, 2);
+  const mean = ((-124000 / 88) * 3 - 6000 - 3000) / 3;
+  assert.equal(dailyCents, Math.round(mean / 3));
+
   const occ = matchOccurrences([rule()], [], [], ["2026-11"], "2026-11-08");
-  const p = projectEndOfMonth(100000, "2026-11-08", occ, daily, basis);
-  assert.equal(p.basis, basis);
-  assert.equal(p.daysRemaining, 22);
+  const p = projectEndOfMonth(100000, "2026-11-08", occ, -200, basis);
+  assert.equal(p.spending, basis);
+  // Du 8 au 30 novembre, le jour du solde compris.
+  assert.equal(p.daysRemaining, 23);
   assert.equal(p.plannedCents, -80000);
-  assert.equal(p.estimateCents, -4400);
-  assert.equal(p.endCents, 100000 - 80000 - 4400);
-  // Historique plus court que 3 mois : la fenêtre commence à la première opération.
-  const short = dailySpending(
-    [tx("2026-10-01", "X", -3100)],
+  assert.equal(p.estimateCents, -4600);
+  assert.equal(p.endCents, 100000 - 80000 - 4600);
+});
+
+test("Projection : même mois l'an dernier, seulement s'il est complet", () => {
+  const nov2025 = dailyTxs("2025-11-01", "2025-11-30", () => -3000);
+  const full = dailySpending(nov2025, [], new Set(), "2026-11-08");
+  const lastYear = full.basis.methods[1];
+  assert.equal(lastYear.from, "2025-11-01");
+  assert.equal(lastYear.to, "2025-11-30");
+  assert.equal(lastYear.partial, false);
+  // 30 € par jour × 23 jours restants.
+  assert.equal(lastYear.estimateCents, -69000);
+  const incomplete = dailySpending(
+    nov2025.slice(1),
     [],
     new Set(),
-    "2026-11-02",
+    "2026-11-08",
   );
-  assert.equal(short.dailyCents, -100);
-  assert.equal(short.basis.partial, true);
-  assert.equal(short.basis.days, 31);
+  assert.equal(incomplete.basis.methods[1].estimateCents, undefined);
+});
+
+test("Projection : historique court, méthodes sans jour de référence écartées", () => {
+  // Deux jours d'historique avant le jour du solde : ni tous les jours de la semaine, ni les 8 → 30.
+  const short = dailySpending(
+    dailyTxs("2026-11-06", "2026-11-08", () => -300),
+    [],
+    new Set(),
+    "2026-11-08",
+  );
+  assert.deepEqual(
+    short.basis.methods.map((m) => m.estimateCents),
+    [-300 * 23, undefined, undefined, undefined],
+  );
+  assert.equal(short.dailyCents, -300);
+  // Le 31 n'a aucun jour de référence (novembre n'en a pas) : moyenne par jour du mois écartée.
+  const dec = dailySpending(
+    dailyTxs("2026-11-01", "2026-12-29", () => -100),
+    [],
+    new Set(),
+    "2026-12-29",
+  );
+  assert.equal(dec.basis.methods[3].estimateCents, undefined);
+  assert.equal(dec.basis.methods[2].estimateCents, -300);
+  // Aucun historique : aucune estimation.
+  const none = dailySpending([], [], new Set(), "2026-11-08");
+  assert.equal(none.dailyCents, 0);
+  assert.ok(none.basis.methods.every((m) => m.estimateCents === undefined));
+  assert.equal(remainingDays("2026-11-30"), 1);
 });
 
 test("Chiffrement : aller-retour, mauvaise clé rejetée, aucun texte en clair", async () => {
