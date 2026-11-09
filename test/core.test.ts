@@ -33,6 +33,7 @@ import {
 } from "../src/core/projection.ts";
 import { emptyRulesFile, validateRulesFile } from "../src/core/rules.ts";
 import { expectedDate, monthSpan } from "../src/core/schedule.ts";
+import { spendingCurves } from "../src/core/spending-curves.ts";
 import { suggestRecurring } from "../src/core/suggest.ts";
 import type {
   AccountSource,
@@ -705,4 +706,82 @@ test("Graphique : escalier des seules opérations prévues encore attendues", ()
     { date: "2026-11-27", cents: 340000 },
   ]);
   assert.deepEqual(plannedSteps(100000, [], "2026-11-08"), []);
+});
+
+test("Courbes de dépenses : mois repartant de 0, hors règles, réel puis projection", () => {
+  const other = "FR7600000000000000000000X02";
+  const own = (date: string, cents: number, label = "CARTE COURSES"): Tx =>
+    tx(date, label, cents);
+  const txs: Tx[] = [
+    own("2026-09-02", -1000),
+    own("2026-09-02", -500),
+    own("2026-09-20", -2000),
+    own("2026-09-15", 50000, "VIR SALAIRE"), // crédit : ignoré
+    own("2026-09-05", -70000, "PRLV LOYER"), // rattaché à une règle
+    own("2026-10-31", -300),
+    own("2026-11-03", -400),
+    own("2026-11-08", -600),
+    { ...own("2026-10-10", -9999), account: other }, // autre compte
+    own("2026-08-12", -100), // plus ancien que les deux mois comparés
+  ];
+  const loyer = rule({
+    amount: { kind: "fixed", cents: 70000, toleranceCents: 0 },
+  });
+
+  const { months, current } = spendingCurves(
+    acc,
+    txs,
+    [loyer],
+    [],
+    "2026-11-09",
+  );
+  assert.deepEqual(
+    months.map((m) => m.period),
+    ["2026-09", "2026-10"],
+  );
+  const sep = months[0];
+  assert.equal(sep.cumCents.length, 31);
+  assert.equal(sep.cumCents[0], 0);
+  assert.equal(sep.cumCents[1], 0);
+  assert.equal(sep.cumCents[2], 1500);
+  assert.equal(sep.cumCents[19], 1500);
+  assert.equal(sep.cumCents[30], 3500); // ni crédit, ni loyer
+  const oct = months[1];
+  assert.equal(oct.cumCents[30], 0);
+  assert.equal(oct.cumCents[31], 300);
+
+  // Mois en cours : réel jusqu'à la veille (8), projection ensuite.
+  assert.equal(current.period, "2026-11");
+  assert.equal(current.through, 8);
+  assert.equal(current.actualCents.length, 9);
+  assert.equal(current.actualCents[3], 400);
+  assert.equal(current.actualCents[8], 1000);
+  // La projection est celle de l'app : mêmes débits retenus (loyer rattaché, donc écarté).
+  const excluded = new Set(
+    matchOccurrences(
+      [loyer],
+      [],
+      txs,
+      periodRange("2025-09", "2026-11"),
+      "2026-11-09",
+    ).flatMap((o) => o.txId ?? []),
+  );
+  const expected = dailySpending(
+    txs.filter((t) => t.account === acc),
+    [loyer],
+    excluded,
+    "2026-11-09",
+  );
+  assert.equal(
+    current.endCents,
+    1000 - expected.dailyCents * remainingDays("2026-11-09"),
+  );
+  assert.ok(current.endCents > 1000);
+  assert.ok(current.methods.length > 0);
+  for (const m of current.methods) assert.ok(m.endCents >= 1000);
+
+  // Premier du mois : rien de comptabilisé, la projection part de 0.
+  const first = spendingCurves(acc, txs, [loyer], [], "2026-11-01");
+  assert.equal(first.current.through, 0);
+  assert.deepEqual(first.current.actualCents, [0]);
 });

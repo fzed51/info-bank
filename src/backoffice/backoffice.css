@@ -226,3 +226,98 @@
 .input[aria-invalid="true"] {
   border-color: var(--ink-debit);
 }
+
+/* --- Dépenses cumulées (onglet « Dépenses ») ----------------------------- */
+
+.bo-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.curve {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Mois terminés : le plus ancien en filet appuyé, le dernier en encre ; mois en cours en bleu. */
+.curve-0 {
+  stroke: var(--rule-strong);
+}
+
+.curve-1 {
+  stroke: var(--ink);
+}
+
+.curve-now {
+  stroke: var(--ink-accent);
+}
+
+.curve-proj {
+  stroke: var(--ink-accent);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+}
+
+.curve-dot {
+  stroke: var(--paper-raised);
+  stroke-width: 2;
+}
+
+.curve-0-dot {
+  fill: var(--rule-strong);
+}
+
+.curve-1-dot {
+  fill: var(--ink);
+}
+
+.curve-now-dot {
+  fill: var(--ink-accent);
+}
+
+.curve-method {
+  fill: var(--paper-raised);
+  stroke: var(--ink-accent);
+  stroke-width: 1.5;
+}
+
+.chart-cursor {
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+}
+
+.chart-end-label {
+  fill: var(--ink);
+  font-family: var(--font-figures);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.legend-curve-0 {
+  border-top-color: var(--rule-strong);
+}
+
+.legend-curve-1 {
+  border-top-color: var(--ink);
+}
+
+.legend-curve-now {
+  border-top-color: var(--ink-accent);
+}
+
+.legend-ring {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--ink-accent);
+  border-radius: 50%;
+}
+
+/* Le SVG est mis à l'échelle : borner sa largeur garde les textes de l'axe à leur taille. */
+.spending-chart {
+  min-width: 560px;
+  max-width: 760px;
+}

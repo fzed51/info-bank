@@ -32,7 +32,7 @@ interface Props {
 }
 
 const compact = new Map<string, Intl.NumberFormat>();
-const axisLabel = (cents: number, currency: string): string => {
+export const axisLabel = (cents: number, currency: string): string => {
   let f = compact.get(currency);
   if (!f) {
     f = new Intl.NumberFormat("fr-FR", {
@@ -47,7 +47,7 @@ const axisLabel = (cents: number, currency: string): string => {
 };
 
 /** Graduations « rondes » couvrant [min, max]. */
-function ticks(min: number, max: number, count = 4): number[] {
+export function ticks(min: number, max: number, count = 4): number[] {
   const span = max - min || Math.abs(max) || 100;
   const raw = span / count;
   const magnitude = 10 ** Math.floor(Math.log10(raw));
