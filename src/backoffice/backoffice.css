@@ -321,3 +321,31 @@
   min-width: 560px;
   max-width: 760px;
 }
+
+/* En-têtes triables de la liste des règles : centrés pour rester alignés avec les autres colonnes. */
+.bo-table thead th {
+  vertical-align: middle;
+}
+
+.bo-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-compact);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.bo-sort:hover {
+  color: var(--ink);
+}
+
+.bo-sort-mark {
+  font-size: var(--text-xs);
+}

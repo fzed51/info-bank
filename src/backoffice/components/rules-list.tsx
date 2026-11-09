@@ -1,7 +1,7 @@
 import { useMemo, useState } from "preact/hooks";
 import { formatCents, formatShortDate } from "../../app/format.ts";
 import { type RuleHits, ruleHits } from "../../core/matching.ts";
-import { newRuleId } from "../../core/rules.ts";
+import { newRuleId, type RuleSortKey, sortRules } from "../../core/rules.ts";
 import { describeSchedule } from "../../core/schedule.ts";
 import type { RecurringRule, Tx } from "../../core/types.ts";
 
@@ -60,6 +60,35 @@ function AmountCell({ rule }: { rule: RecurringRule }) {
   );
 }
 
+/** En-tête de colonne triable : bouton, indicateur ▲ ▼ et `aria-sort` sur la cellule. */
+function SortHeader({
+  label,
+  column,
+  sort,
+  onSort,
+}: {
+  label: string;
+  column: RuleSortKey;
+  sort: { key: RuleSortKey; dir: "asc" | "desc" };
+  onSort: (key: RuleSortKey) => void;
+}) {
+  const active = sort.key === column;
+  return (
+    <th
+      aria-sort={
+        active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"
+      }
+    >
+      <button type="button" class="bo-sort" onClick={() => onSort(column)}>
+        {label}
+        <span class="bo-sort-mark" aria-hidden="true">
+          {active ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 /** Indique si la règle a déjà trouvé au moins une opération (texte + symbole, pas la couleur seule). */
 function HitsBadge({ hits }: { hits: RuleHits }) {
   if (!hits.last)
@@ -90,11 +119,20 @@ export function RulesList({
 }: Props) {
   // Suppression en deux temps, sans boîte de dialogue du navigateur.
   const [confirming, setConfirming] = useState<string>();
-  const own = rules
-    .filter((r) => r.account === account)
-    .sort(
-      (a, b) => a.schedule.day - b.schedule.day || a.name.localeCompare(b.name),
-    );
+  const [sort, setSort] = useState<{ key: RuleSortKey; dir: "asc" | "desc" }>({
+    key: "schedule",
+    dir: "asc",
+  });
+  const own = sortRules(
+    rules.filter((r) => r.account === account),
+    sort.key,
+    sort.dir,
+  );
+  const onSort = (key: RuleSortKey) =>
+    setSort((s) => ({
+      key,
+      dir: s.key === key && s.dir === "asc" ? "desc" : "asc",
+    }));
   const hits = useMemo(
     () => new Map(own.map((r) => [r.id, ruleHits(r, txs)])),
     [rules, txs, account],
@@ -120,10 +158,25 @@ export function RulesList({
           <table class="bo-table">
             <thead>
               <tr>
-                <th>Nom</th>
+                <SortHeader
+                  label="Nom"
+                  column="name"
+                  sort={sort}
+                  onSort={onSort}
+                />
                 <th>Libellé</th>
-                <th>Montant</th>
-                <th>Calendrier</th>
+                <SortHeader
+                  label="Montant"
+                  column="amount"
+                  sort={sort}
+                  onSort={onSort}
+                />
+                <SortHeader
+                  label="Calendrier"
+                  column="schedule"
+                  sort={sort}
+                  onSort={onSort}
+                />
                 <th title="Opérations déjà trouvées dans l'historique chargé, sans tenir compte de la date">
                   Correspondance
                 </th>

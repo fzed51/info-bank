@@ -31,7 +31,11 @@ import {
   projectEndOfMonth,
   remainingDays,
 } from "../src/core/projection.ts";
-import { emptyRulesFile, validateRulesFile } from "../src/core/rules.ts";
+import {
+  emptyRulesFile,
+  sortRules,
+  validateRulesFile,
+} from "../src/core/rules.ts";
 import { expectedDate, monthSpan } from "../src/core/schedule.ts";
 import { spendingCurves } from "../src/core/spending-curves.ts";
 import { suggestRecurring } from "../src/core/suggest.ts";
@@ -784,4 +788,76 @@ test("Courbes de dépenses : mois repartant de 0, hors règles, réel puis proje
   const first = spendingCurves(acc, txs, [loyer], [], "2026-11-01");
   assert.equal(first.current.through, 0);
   assert.deepEqual(first.current.actualCents, [0]);
+});
+
+test("Règles : tri par nom, montant signé ou calendrier, règles « ignorer » en fin de liste", () => {
+  const r = (name: string, over: Partial<RecurringRule> = {}): RecurringRule =>
+    rule({ id: name, name, ...over });
+  const fixed = (cents: number) =>
+    ({ kind: "fixed", cents, toleranceCents: 0 }) as const;
+  const list = [
+    r("Loyer", { amount: fixed(80000), schedule: { day: 5, windowDays: 3 } }),
+    r("Salaire", {
+      direction: "credit",
+      amount: fixed(250000),
+      schedule: { day: 27, windowDays: 3 },
+    }),
+    r("électricité", {
+      amount: { kind: "variable", estimateCents: 6000 },
+      schedule: { day: 12, windowDays: 3 },
+    }),
+    r("Assurance", {
+      amount: fixed(6000),
+      schedule: { day: 12, windowDays: 3 },
+    }),
+    r("Virement épargne", { kind: "ignore" }),
+  ];
+  const names = (k: "name" | "amount" | "schedule", d: "asc" | "desc") =>
+    sortRules(list, k, d).map((x) => x.name);
+
+  assert.deepEqual(names("name", "asc"), [
+    "Assurance",
+    "électricité",
+    "Loyer",
+    "Salaire",
+    "Virement épargne",
+  ]);
+  assert.deepEqual(names("name", "desc"), [
+    "Virement épargne",
+    "Salaire",
+    "Loyer",
+    "électricité",
+    "Assurance",
+  ]);
+  // Montant signé : le loyer (−800) avant l'assurance et l'électricité (−60), le salaire en dernier.
+  assert.deepEqual(names("amount", "asc"), [
+    "Loyer",
+    "Assurance",
+    "électricité",
+    "Salaire",
+    "Virement épargne",
+  ]);
+  assert.deepEqual(names("amount", "desc"), [
+    "Salaire",
+    "Assurance",
+    "électricité",
+    "Loyer",
+    "Virement épargne",
+  ]);
+  // Calendrier : jour du mois, à égalité par nom.
+  assert.deepEqual(names("schedule", "asc"), [
+    "Loyer",
+    "Assurance",
+    "électricité",
+    "Salaire",
+    "Virement épargne",
+  ]);
+  assert.deepEqual(names("schedule", "desc"), [
+    "Salaire",
+    "Assurance",
+    "électricité",
+    "Loyer",
+    "Virement épargne",
+  ]);
+  assert.equal(list[0].name, "Loyer"); // la liste d'origine n'est pas modifiée
 });

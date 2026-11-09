@@ -128,3 +128,42 @@ export function sortByAccountOrder<T>(
     .sort((a, b) => a.pos - b.pos)
     .map((x) => x.item);
 }
+
+export type RuleSortKey = "name" | "amount" | "schedule";
+
+/** Montant attendu signé (débit négatif) ; `undefined` pour une règle « ignorer ». */
+export function ruleAmountCents(r: RecurringRule): number | undefined {
+  if (r.kind === "ignore") return undefined;
+  const cents =
+    r.amount.kind === "fixed" ? r.amount.cents : r.amount.estimateCents;
+  return r.direction === "debit" ? -cents : cents;
+}
+
+/**
+ * Règles triées par nom, montant signé ou jour du calendrier (puis par nom).
+ * Les règles « ignorer », sans montant ni calendrier affichés, restent en fin de liste
+ * quel que soit le sens du tri.
+ */
+export function sortRules(
+  rules: RecurringRule[],
+  key: RuleSortKey,
+  dir: "asc" | "desc",
+): RecurringRule[] {
+  const sign = dir === "asc" ? 1 : -1;
+  const byName = (a: RecurringRule, b: RecurringRule): number =>
+    a.name.localeCompare(b.name, "fr", { sensitivity: "base" });
+  const value = (r: RecurringRule): number | undefined =>
+    key === "amount"
+      ? ruleAmountCents(r)
+      : r.kind === "ignore"
+        ? undefined
+        : r.schedule.day;
+  return [...rules].sort((a, b) => {
+    if (key === "name") return sign * byName(a, b);
+    const va = value(a);
+    const vb = value(b);
+    if (va === undefined || vb === undefined)
+      return va === vb ? byName(a, b) : va === undefined ? 1 : -1;
+    return sign * (va - vb) || byName(a, b);
+  });
+}

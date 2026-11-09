@@ -56,7 +56,7 @@ npm run deploy         # build de la PWA et publication sur gh-pages
 
 - **Suggestions** : opérations au même libellé présentes au moins 3 mois sur les 6 derniers ; « Créer une règle » préremplit le formulaire.
 - **Dépenses** : dépenses courantes cumulées jour par jour pour les deux mois précédents (chaque courbe repart de 0) et pour le mois en cours, réel jusqu'à la veille puis projection de l'app. Les ronds creux en fin de mois sont l'estimation de chaque méthode ; le survol et un tableau dépliable donnent les valeurs. Même périmètre que la projection : débits non rattachés à une règle ni ignorés.
-- **Règles** : création, modification, activation, suppression. Le formulaire montre les opérations correspondantes et les échéances qui en découlent.
+- **Règles** : création, modification, activation, suppression. Un clic sur « Nom », « Montant » ou « Calendrier » trie la liste (un second clic inverse le sens) ; le montant se trie signé, débits avant crédits, et les règles « ignorer » restent en fin de liste. Le formulaire montre les opérations correspondantes et les échéances qui en découlent.
 - **Suivi** : grille règle × mois ; un clic sur une case permet de lier une autre opération, de marquer « pas ce mois-ci », ou de revenir à la détection automatique.
 - **Comptes** : nom affiché, ordre des onglets (flèches ↑ ↓, appliqué aussi au menu « Compte » du backoffice) et visibilité. Un compte masqué n'est pas publié : ni onglet, ni « Total », ni opérations dans `data.enc`.
 
