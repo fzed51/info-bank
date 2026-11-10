@@ -127,6 +127,21 @@ textarea {
   gap: var(--space-4);
 }
 
+/* Version du build, en bas de page. */
+.version {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 var(--space-4) var(--space-5);
+  color: var(--ink-muted);
+  font-family: var(--font-figures);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.center .version {
+  padding: 0;
+}
+
 .stack {
   display: flex;
   flex-direction: column;

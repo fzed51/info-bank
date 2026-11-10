@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
+import { readAppVersion } from "./src/build/version.ts";
 
 const root = resolve("src/app");
 const publicDir = resolve("public");
@@ -66,6 +67,7 @@ export default defineConfig({
   root,
   base: "./",
   publicDir,
+  define: { injectedAppVersion: JSON.stringify(readAppVersion()) },
   oxc: { jsx: { runtime: "automatic", importSource: "preact" } },
   build: {
     outDir: resolve("dist"),

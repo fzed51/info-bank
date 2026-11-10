@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { initialTxIndexes, plannedSteps } from "../src/app/data.ts";
 import { toCents } from "../src/build/source.ts";
+import { formatVersion, readAppVersion } from "../src/build/version.ts";
 import {
   decryptJson,
   deriveKey,
@@ -860,4 +861,11 @@ test("Règles : tri par nom, montant signé ou calendrier, règles « ignorer »
     "Virement épargne",
   ]);
   assert.equal(list[0].name, "Loyer"); // la liste d'origine n'est pas modifiée
+});
+
+test("Version : numéro du package, commit court, « + » si l'arbre est modifié", () => {
+  assert.equal(formatVersion("0.1.0", "94f74e1"), "v0.1.0 · 94f74e1");
+  assert.equal(formatVersion("0.1.0", "94f74e1", true), "v0.1.0 · 94f74e1+");
+  assert.equal(formatVersion("1.2.3"), "v1.2.3"); // hors dépôt git
+  assert.match(readAppVersion(), /^v\d+\.\d+\.\d+/);
 });

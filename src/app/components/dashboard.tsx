@@ -8,6 +8,7 @@ import { HistoryChart } from "./history-chart.tsx";
 import { PlannedList } from "./planned-list.tsx";
 import { ProjectionCard } from "./projection-card.tsx";
 import { TxList } from "./tx-list.tsx";
+import { VersionFooter } from "./version-footer.tsx";
 
 const selectedStorage = "info-bank:account";
 /** Au-delà, les données sont signalées comme anciennes (la synchro est nocturne). */
@@ -61,6 +62,7 @@ export function Dashboard({ payload, onLock, onRefresh }: Props) {
     return (
       <main class="center">
         <p class="muted">Aucun compte dans les données.</p>
+        <VersionFooter />
       </main>
     );
 
@@ -112,6 +114,7 @@ export function Dashboard({ payload, onLock, onRefresh }: Props) {
           currency={account.currency}
         />
       </main>
+      <VersionFooter />
     </div>
   );
 }

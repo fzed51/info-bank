@@ -79,6 +79,16 @@ Chaque échec (synchro, données, publication, erreur inattendue) est aussi sign
 powershell -ExecutionPolicy Bypass -File scripts\notify.ps1 -Subject "Test" -Body "Essai"   # mail d'essai
 ```
 
+### Version
+
+La version affichée en bas de l'app (« info-bank v0.1.0 · 94f74e1 ») est le champ `version` de `package.json` suivi du commit git du build. Un « + » après le commit signale des modifications non commitées au moment du build : commiter avant `npm run deploy` pour publier une version propre. Pour changer le numéro (semver) :
+
+```powershell
+npm version patch --no-git-tag-version   # ou minor / major ; puis commiter package.json
+```
+
+Pas de date de build : le service worker dérive sa version du contenu du build, et une date le ferait changer à chaque publication nocturne.
+
 ### Mise en ligne (une fois)
 
 1. Créer un dépôt GitHub public et l'ajouter en remote `origin` (ou renseigner `DEPLOY_REMOTE`).

@@ -1,4 +1,5 @@
 import { useState } from "preact/hooks";
+import { VersionFooter } from "./version-footer.tsx";
 
 interface Props {
   error?: string;
@@ -55,6 +56,7 @@ export function Unlock({ error, onUnlock }: Props) {
           {busy ? "Déchiffrement…" : "Ouvrir"}
         </button>
       </form>
+      <VersionFooter />
     </main>
   );
 }

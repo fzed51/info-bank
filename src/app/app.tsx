@@ -7,6 +7,7 @@ import {
 import type { Payload } from "../core/types.ts";
 import { Dashboard } from "./components/dashboard.tsx";
 import { Unlock } from "./components/unlock.tsx";
+import { VersionFooter } from "./components/version-footer.tsx";
 import {
   DataUnavailableError,
   decryptPayload,
@@ -96,6 +97,7 @@ export function App() {
           <button type="button" class="button" onClick={() => void load()}>
             Réessayer
           </button>
+          <VersionFooter />
         </main>
       );
     case "locked":
