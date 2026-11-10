@@ -7,7 +7,7 @@ import {
   demoRules,
   demoSources,
 } from "../src/build/demo-data.ts";
-import { toCents } from "../src/build/source.ts";
+import { dropSupersededTxs, toCents } from "../src/build/source.ts";
 import { formatVersion, readAppVersion } from "../src/build/version.ts";
 import {
   decryptJson,
@@ -908,4 +908,35 @@ test("Démo : données fictives, déterministes, projection complète", () => {
   assert.ok(checking.occurrences.length >= 6);
   assert.ok(checking.transactions.some((t) => t.pending));
   assert.ok(demoPassphrase.length >= 16);
+});
+
+test("Source : la copie à id de contenu est écartée quand l'id bancaire la complète", () => {
+  const tx = (id: string, label: string, cents = -1000, date = "2026-11-05") =>
+    ({ id, account: "A", date, label, cents, status: "booked" }) as const;
+  const list = [
+    tx("eb:aaaa#1", "CARTE X 0511 BOULANGERIE"),
+    tx("eb:1111-2222-3333", "CARTE X 0511 BOULANGERIE PARIS FR"),
+    // Deux opérations identiques le même jour : le doublon n'en écarte qu'une par copie bancaire.
+    tx("eb:bbbb#1", "PRLV ASSURANCE", -500),
+    tx("eb:bbbb#2", "PRLV ASSURANCE", -500),
+    tx("eb:4444-5555", "PRLV ASSURANCE SA REF 12", -500),
+    // Même libellé des deux côtés, autre date ou autre montant : rien n'est écarté.
+    tx("eb:cccc#1", "VIR SALAIRE", 200000),
+    tx("eb:6666-7777", "VIR SALAIRE", 200000),
+    tx("eb:dddd#1", "RETRAIT", -2000, "2026-11-06"),
+    tx("eb:8888-9999", "RETRAIT DAB", -2000, "2026-11-07"),
+  ];
+  assert.deepEqual(
+    dropSupersededTxs(list).map((t) => t.id),
+    [
+      "eb:1111-2222-3333",
+      "eb:bbbb#2",
+      "eb:4444-5555",
+      "eb:cccc#1",
+      "eb:6666-7777",
+      "eb:dddd#1",
+      "eb:8888-9999",
+    ],
+  );
+  assert.equal(dropSupersededTxs(list.slice(2, 3)).length, 1);
 });
