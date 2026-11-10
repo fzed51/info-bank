@@ -27,42 +27,6 @@ interface CbBalance {
   referenceDate: string;
 }
 
-/** Id calculé par connect-bank sur le contenu (`eb:<hash>#<rang>`), faute d'identifiant bancaire. */
-const isContentId = (id: string): boolean => /#\d+$/.test(id);
-
-/**
- * connect-bank dédoublonne par id : une opération d'abord stockée sous un id de contenu revient,
- * une fois la référence bancaire attribuée, sous cet id avec un libellé complété, et les deux
- * copies restent. On écarte alors la copie à id de contenu quand une copie à id bancaire a le même
- * compte, la même date, le même montant et un libellé qui contient le sien (une pour une : deux
- * opérations identiques le même jour restent deux).
- */
-export function dropSupersededTxs(txs: Tx[]): Tx[] {
-  const norm = (label: string): string => label.replace(/\s+/g, " ").trim();
-  const groups = new Map<string, Tx[]>();
-  for (const t of txs) {
-    const key = `${t.account}|${t.date}|${t.cents}`;
-    groups.set(key, [...(groups.get(key) ?? []), t]);
-  }
-  const dropped = new Set<string>();
-  for (const group of groups.values()) {
-    const bank = group.filter((t) => !isContentId(t.id));
-    const taken = new Set<string>();
-    for (const t of group.filter((x) => isContentId(x.id))) {
-      const twin = bank.find(
-        (b) =>
-          !taken.has(b.id) &&
-          b.label !== t.label &&
-          norm(b.label).includes(norm(t.label)),
-      );
-      if (!twin) continue;
-      taken.add(twin.id);
-      dropped.add(t.id);
-    }
-  }
-  return dropped.size === 0 ? txs : txs.filter((t) => !dropped.has(t.id));
-}
-
 const readJson = <T>(file: string): T[] =>
   existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as T[]) : [];
 
@@ -79,16 +43,14 @@ export function loadSources(outDir: string): AccountSource[] {
     if (!existsSync(dir)) continue;
     const raw = readJson<CbTransaction>(join(dir, "transactions.json"));
     const rawBalances = readJson<CbBalance>(join(dir, "balances.json"));
-    const txs: Tx[] = dropSupersededTxs(
-      raw.map((t) => ({
-        id: t.id,
-        account: entry.name,
-        date: t.date,
-        label: t.label,
-        cents: toCents(t.amount),
-        status: t.status,
-      })),
-    );
+    const txs: Tx[] = raw.map((t) => ({
+      id: t.id,
+      account: entry.name,
+      date: t.date,
+      label: t.label,
+      cents: toCents(t.amount),
+      status: t.status,
+    }));
     const balances: BalancePoint[] = rawBalances.map((b) => ({
       type: b.type,
       date: b.referenceDate,
