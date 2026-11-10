@@ -164,6 +164,8 @@ export interface Payload {
   /** Date de référence des données (YYYY-MM-DD). */
   asOf: string;
   syncError?: string;
+  /** Version de démonstration : toutes les données sont fictives (`npm run build:demo`). */
+  demo?: true;
   /** Début commun des séries quotidiennes. */
   historyStart: string;
   accounts: PayloadAccount[];

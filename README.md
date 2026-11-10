@@ -89,6 +89,15 @@ npm version patch --no-git-tag-version   # ou minor / major ; puis commiter pack
 
 Pas de date de build : le service worker dérive sa version du contenu du build, et une date le ferait changer à chaque publication nocturne.
 
+### Version de démonstration
+
+`npm run build:demo` construit dans `dist-demo/` une copie de l'app dont les données sont entièrement fictives : deux comptes sur 13 mois, des échéances, un virement d'épargne ignoré, des opérations en cours. Une bannière « Version de démonstration » s'affiche dans l'app et la version porte le suffixe « · démo ». `npm run preview:demo` la sert sur http://127.0.0.1:4180.
+
+- **Clé de connexion** : `galoche-buisson-sablier-clairiere-grenier` (`demoPassphrase` dans `src/build/demo-data.ts`). Elle ne protège que des données fictives et peut être publiée ; le sel est fixe, donc une clé mémorisée reste valable d'un build à l'autre.
+- **Aucun lien avec les données réelles** : le build ne lit ni `.env`, ni connect-bank, ni `%APPDATA%info-bank` ; le `data.enc` réel que Vite copie depuis `public/` est écrasé par celui de la démo, puis le script le redéchiffre pour contrôle.
+- **Dates relatives** : les données sont générées autour du jour du build (mêmes dépenses à chaque fois) ; relancer `build:demo` pour une démo « à jour ».
+- **Hébergement** : `dist-demo/` est un site statique, à servir sur une origine distincte de l'app réelle (service worker et clé mémorisée y sont propres à l'origine). Rien n'est publié par ce script.
+
 ### Mise en ligne (une fois)
 
 1. Créer un dépôt GitHub public et l'ajouter en remote `origin` (ou renseigner `DEPLOY_REMOTE`).

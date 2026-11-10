@@ -52,11 +52,14 @@ export function Dashboard({ payload, onLock, onRefresh }: Props) {
   };
 
   const ageHours = (Date.now() - Date.parse(payload.generatedAt)) / 3_600_000;
-  const warning = payload.syncError
-    ? `Dernière synchro en échec : ${payload.syncError}`
-    : ageHours > staleHours
-      ? `Données anciennes : mises à jour le ${formatTimestamp(payload.generatedAt)}.`
-      : undefined;
+  // Démo : jeu de données figé, jamais « ancien » ni en échec de synchro.
+  const warning = payload.demo
+    ? "Version de démonstration : toutes les données sont fictives."
+    : payload.syncError
+      ? `Dernière synchro en échec : ${payload.syncError}`
+      : ageHours > staleHours
+        ? `Données anciennes : mises à jour le ${formatTimestamp(payload.generatedAt)}.`
+        : undefined;
 
   if (!account)
     return (

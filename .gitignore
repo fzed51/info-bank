@@ -4,3 +4,4 @@ dist/
 public/data.enc
 *.pem
 *.key
+dist-demo/

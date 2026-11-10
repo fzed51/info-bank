@@ -17,6 +17,8 @@ npm run build:data       # connect-bank + règles → public/data.enc (lit des d
 npm run backoffice       # backoffice sur http://127.0.0.1:5174
 npm run dev / build / preview
 npm run deploy           # publication réelle sur gh-pages
+npm run build:demo       # démo à données fictives et clé publique → dist-demo/ (ne lit rien de réel)
+npm run preview:demo     # sert dist-demo/ sur http://127.0.0.1:4180
 ```
 
 ## Architecture

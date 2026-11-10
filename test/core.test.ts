@@ -2,6 +2,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { initialTxIndexes, plannedSteps } from "../src/app/data.ts";
+import {
+  demoPassphrase,
+  demoRules,
+  demoSources,
+} from "../src/build/demo-data.ts";
 import { toCents } from "../src/build/source.ts";
 import { formatVersion, readAppVersion } from "../src/build/version.ts";
 import {
@@ -868,4 +873,39 @@ test("Version : numéro du package, commit court, « + » si l'arbre est modifi�
   assert.equal(formatVersion("0.1.0", "94f74e1", true), "v0.1.0 · 94f74e1+");
   assert.equal(formatVersion("1.2.3"), "v1.2.3"); // hors dépôt git
   assert.match(readAppVersion(), /^v\d+\.\d+\.\d+/);
+});
+
+test("Démo : données fictives, déterministes, projection complète", () => {
+  const today = "2026-11-09";
+  const sources = demoSources(today);
+  assert.deepEqual(sources, demoSources(today)); // mêmes dépenses à chaque build
+
+  const { payload } = buildPayload(
+    sources,
+    validateRulesFile(demoRules()),
+    today,
+    "2026-11-09T04:00:00.000Z",
+  );
+  assert.equal(payload.accounts.length, 2);
+  assert.deepEqual(
+    payload.accounts.map((a) => a.name),
+    ["Compte courant", "Livret"],
+  );
+  // Rien de réel : IBAN fictifs, libellés marqués DEMO.
+  for (const s of sources) {
+    assert.match(s.account, /^FR7600000000000000000000D0\d$/);
+    for (const t of s.txs) assert.match(t.label, /DEMO$/);
+  }
+  const checking = payload.accounts[0];
+  // Les quatre méthodes ont assez d'historique (13 mois), dont « même mois l'an dernier ».
+  assert.equal(
+    checking.projection.spending?.methods.filter(
+      (m) => m.estimateCents !== undefined,
+    ).length,
+    4,
+  );
+  assert.ok(checking.history.every((v) => v > 0));
+  assert.ok(checking.occurrences.length >= 6);
+  assert.ok(checking.transactions.some((t) => t.pending));
+  assert.ok(demoPassphrase.length >= 16);
 });
