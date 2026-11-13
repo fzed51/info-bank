@@ -36,6 +36,8 @@ import {
   dailySpending,
   projectEndOfMonth,
   remainingDays,
+  sumProjections,
+  unbudgetedCents,
 } from "../src/core/projection.ts";
 import {
   emptyRulesFile,
@@ -372,6 +374,22 @@ test("Projection : moyenne des méthodes, hors règles et hors « ignorer »", (
   assert.equal(p.plannedCents, -80000);
   assert.equal(p.estimateCents, -4600);
   assert.equal(p.endCents, 100000 - 80000 - 4600);
+});
+
+test("Projection : solde non budgété = solde + opérations prévues restantes", () => {
+  const occ = matchOccurrences([rule()], [], [], ["2026-11"], "2026-11-08");
+  const p = projectEndOfMonth(100000, "2026-11-08", occ, -200);
+  // Les dépenses courantes estimées ne sont pas déduites.
+  assert.equal(p.plannedCents, -80000);
+  assert.equal(unbudgetedCents(p), 20000);
+  // Vue « Total » : somme des comptes.
+  const other = projectEndOfMonth(50000, "2026-11-08", [], -100);
+  assert.equal(unbudgetedCents(sumProjections([p, other])), 70000);
+  // Borné à zéro : jamais négatif.
+  assert.equal(
+    unbudgetedCents(projectEndOfMonth(30000, "2026-11-08", occ, 0)),
+    0,
+  );
 });
 
 test("Projection : même mois l'an dernier, seulement s'il est complet", () => {

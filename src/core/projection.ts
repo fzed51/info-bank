@@ -212,6 +212,14 @@ export function projectEndOfMonth(
   };
 }
 
+/**
+ * Solde non budgété : ce qui resterait sur le compte une fois payées toutes les
+ * opérations prévues restantes du mois, avant les dépenses courantes estimées.
+ * Jamais négatif : un découvert prévu n'est pas un solde « libre ».
+ */
+export const unbudgetedCents = (p: Projection): number =>
+  Math.max(0, p.balanceCents + p.plannedCents);
+
 /** Somme de plusieurs projections (vue « Total »). */
 export function sumProjections(list: Projection[]): Projection {
   const sum = (k: Exclude<keyof Projection, "spending">): number =>

@@ -236,6 +236,21 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
+/* Solde non budgété : sous le solde, sans filet ni trait de total. */
+.unbudgeted {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+.unbudgeted .amount {
+  margin-left: auto;
+  font-size: var(--text-lg);
+  font-weight: 500;
+}
+
 .banner {
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--ink-warning);
