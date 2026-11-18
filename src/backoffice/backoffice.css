@@ -98,6 +98,29 @@
   color: var(--ink-muted);
 }
 
+/* Montants alignés à droite ; libellés longs autorisés à passer à la ligne. */
+.bo-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bo-table .nowrap {
+  white-space: nowrap;
+}
+
+.bo-label {
+  overflow-wrap: break-word;
+}
+
+/* Ligne secondaire sous le libellé (statut, règle). */
+.bo-sub {
+  display: block;
+}
+
+.bo-table tr.pending .bo-label {
+  font-style: italic;
+}
+
 .bo-table .current {
   background: var(--paper-sunken);
 }
@@ -348,4 +371,20 @@
 
 .bo-sort-mark {
   font-size: var(--text-xs);
+}
+
+/* Tableau des opérations : marges réduites pour que le montant reste visible sur mobile. */
+.bo-table.bo-ops th,
+.bo-table.bo-ops td {
+  padding-inline: var(--space-2);
+}
+
+.bo-table.bo-ops th:first-child,
+.bo-table.bo-ops td:first-child {
+  padding-left: 0;
+}
+
+.bo-table.bo-ops th:last-child,
+.bo-table.bo-ops td:last-child {
+  padding-right: 0;
 }

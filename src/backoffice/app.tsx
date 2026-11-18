@@ -4,15 +4,23 @@ import { sortByAccountOrder } from "../core/rules.ts";
 import type { RecurringRule, RulesFile } from "../core/types.ts";
 import { fetchData, putRules } from "./api-client.ts";
 import { AccountsPanel } from "./components/accounts-panel.tsx";
+import { OperationsPanel } from "./components/operations-panel.tsx";
 import { RuleEditor } from "./components/rule-editor.tsx";
 import { RulesList } from "./components/rules-list.tsx";
 import { SpendingPanel } from "./components/spending-panel.tsx";
 import { SuggestionsPanel } from "./components/suggestions-panel.tsx";
 import { TrackingPanel } from "./components/tracking-panel.tsx";
 
-type Tab = "suivi" | "depenses" | "regles" | "suggestions" | "comptes";
+type Tab =
+  | "suivi"
+  | "operations"
+  | "depenses"
+  | "regles"
+  | "suggestions"
+  | "comptes";
 const tabs: [Tab, string][] = [
   ["suivi", "Suivi"],
+  ["operations", "Opérations"],
   ["depenses", "Dépenses"],
   ["regles", "Règles"],
   ["suggestions", "Suggestions"],
@@ -158,6 +166,9 @@ export function App() {
               data={data}
               onSave={(r) => void save(r)}
             />
+          )}
+          {tab === "operations" && (
+            <OperationsPanel account={account} data={data} />
           )}
           {tab === "depenses" && (
             <SpendingPanel account={account} data={data} />
