@@ -1,7 +1,12 @@
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import type { PayloadTx } from "../../core/types.ts";
 import { initialTxIndexes } from "../data.ts";
-import { amountClass, formatCents, formatShortDate } from "../format.ts";
+import {
+  amountClass,
+  formatCents,
+  formatLongDate,
+  formatShortDate,
+} from "../format.ts";
 
 const pageSize = 30;
 
@@ -13,7 +18,11 @@ interface Props {
 export function TxList({ transactions, currency }: Props) {
   // Au départ : opérations en cours + dernière comptabilisée ; puis `pageSize` de plus par clic.
   const [shown, setShown] = useState(0);
+  // Une seule ligne dépliée à la fois (indice dans `transactions`).
+  const [open, setOpen] = useState<number>();
   const initial = useMemo(() => initialTxIndexes(transactions), [transactions]);
+  // Autre compte ou nouvelles données : l'indice ne désigne plus la même opération.
+  useEffect(() => setOpen(undefined), [transactions]);
   const visible = transactions
     .map((t, i) => ({ t, i }))
     .filter(({ i }) => i < shown || initial.has(i));
@@ -32,16 +41,34 @@ export function TxList({ transactions, currency }: Props) {
         <p class="muted">Aucune opération récente.</p>
       ) : (
         <ul class="ledger">
-          {visible.map(({ t, i }) => (
-            <li
-              key={`${t.date}-${i}`}
-              class={t.pending ? "ledger-row pending" : "ledger-row"}
-            >
-              <span class="ledger-date figures">{formatShortDate(t.date)}</span>
-              <span class="ledger-label">
-                <span class="truncate">{t.label}</span>
-                {(t.pending || t.rule || t.account) && (
-                  <span class="muted small">
+          {visible.map(({ t, i }) => {
+            const expanded = open === i;
+            const detailId = `tx-detail-${i}`;
+            return (
+              <li
+                key={`${t.date}-${i}`}
+                class={t.pending ? "tx-item pending" : "tx-item"}
+              >
+                <button
+                  type="button"
+                  class="tx-toggle"
+                  aria-expanded={expanded}
+                  aria-controls={detailId}
+                  onClick={() => setOpen(expanded ? undefined : i)}
+                >
+                  <span class="ledger-date figures">
+                    {formatShortDate(t.date)}
+                  </span>
+                  <span
+                    class={expanded ? "tx-label tx-full" : "tx-label truncate"}
+                  >
+                    {t.label}
+                  </span>
+                  <span class={`${amountClass(t.cents)} tx-amount`}>
+                    {formatCents(t.cents, currency, true)}
+                  </span>
+                  {/* Annotations ; le chevron est un simple repère, la ligne entière est le bouton. */}
+                  <span class="tx-meta muted small">
                     {[
                       t.pending ? "en cours" : "",
                       t.rule ?? "",
@@ -50,13 +77,34 @@ export function TxList({ transactions, currency }: Props) {
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                )}
-              </span>
-              <span class={amountClass(t.cents)}>
-                {formatCents(t.cents, currency, true)}
-              </span>
-            </li>
-          ))}
+                  <svg
+                    class="tx-chevron"
+                    viewBox="0 0 16 16"
+                    width="12"
+                    height="12"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="M3.5 6l4.5 4.5L12.5 6"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+                <div id={detailId} class="tx-detail" hidden={!expanded}>
+                  <p class="muted small">
+                    {[formatLongDate(t.date), t.pending ? "" : "enregistrée"]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
       {remaining > 0 && (
