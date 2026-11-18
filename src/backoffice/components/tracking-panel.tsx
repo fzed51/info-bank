@@ -1,4 +1,4 @@
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { StatusBadge } from "../../app/components/planned-list.tsx";
 import {
   formatCents,
@@ -27,11 +27,16 @@ const linkWindowDays = 20;
 
 export function TrackingPanel({ account, data, onSave }: Props) {
   const [open, setOpen] = useState<Occurrence>();
+  const scroller = useRef<HTMLDivElement>(null);
   const current = periodOf(data.today);
   const periods = periodRange(addMonths(current, -5), addMonths(current, 1));
-  const rules = data.rules.rules.filter(
-    (r) => r.account === account && r.active && r.kind === "recurring",
-  );
+  // Triées par jour d'échéance dans le mois, pas par ordre d'enregistrement.
+  const rules = data.rules.rules
+    .filter((r) => r.account === account && r.active && r.kind === "recurring")
+    .sort(
+      (a, b) =>
+        a.schedule.day - b.schedule.day || a.name.localeCompare(b.name, "fr"),
+    );
 
   // Toutes les règles du fichier participent au matching (une opération ne sert qu'une fois).
   const occurrences = useMemo(
@@ -45,6 +50,13 @@ export function TrackingPanel({ account, data, onSave }: Props) {
       ),
     [data, current],
   );
+  // Le tableau défile horizontalement : on amène le mois courant à l'écran.
+  useEffect(() => {
+    const box = scroller.current;
+    const head = box?.querySelector<HTMLElement>("th.current");
+    if (!box || !head) return;
+    box.scrollLeft = head.offsetLeft + head.offsetWidth - box.clientWidth;
+  }, [current, rules.length]);
   const cell = (ruleId: string, period: string) =>
     occurrences.find((o) => o.ruleId === ruleId && o.period === period);
 
@@ -69,13 +81,13 @@ export function TrackingPanel({ account, data, onSave }: Props) {
 
   return (
     <section class="card stack">
-      <h2 class="section-title">Échéances des 6 derniers mois</h2>
+      <h2 class="section-title">Échéances par mois</h2>
       <p class="muted small">
         Cliquez sur une case pour lier une autre opération, ou indiquer que
         l'échéance n'a pas lieu ce mois-là. Les cases marquées ✎ ont été
         corrigées à la main.
       </p>
-      <div class="bo-scroll">
+      <div class="bo-scroll" ref={scroller}>
         <table class="bo-table bo-grid-table">
           <thead>
             <tr>
