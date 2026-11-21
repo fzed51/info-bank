@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Comptes</title>
+  <rect width="512" height="512" rx="112" fill="#F4EEDF"/>
+  <g>
+    <path d="M150 40L150 472" stroke="#D99A8C" stroke-width="32"/>
+    <polyline points="206,368 276,262 334,312 404,176" stroke="#2A241E" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="404" cy="160" r="72" fill="#F4EEDF"/>
+    <circle cx="404" cy="160" r="54" fill="#2A4A7F"/>
+  </g>
+</svg>
