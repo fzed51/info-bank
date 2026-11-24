@@ -517,6 +517,30 @@ test("Payload : comptes, IBAN masqué, opérations publiées, projection", () =>
   assert.ok(!JSON.stringify(payload).includes(acc));
 });
 
+test("Payload : à date égale, les opérations en cours précèdent les enregistrées", () => {
+  const source: AccountSource = {
+    account: acc,
+    currency: "EUR",
+    // Enregistrées d'abord dans la source, comme à la réception de la banque.
+    txs: [
+      tx("2026-11-07", "ENREGISTREE VEILLE", -100),
+      tx("2026-11-08", "ENREGISTREE", -200),
+      tx("2026-11-08", "EN COURS", -300, true),
+    ],
+    balances: [{ type: "XPCD", date: "2026-11-08", cents: 100000 }],
+  };
+  const { payload } = buildPayload(
+    [source],
+    emptyRulesFile(),
+    "2026-11-08",
+    "2026-11-08T03:00:00.000Z",
+  );
+  assert.deepEqual(
+    payload.accounts[0].transactions.map((t) => t.label),
+    ["EN COURS", "ENREGISTREE", "ENREGISTREE VEILLE"],
+  );
+});
+
 test("App : vue de départ des opérations (en cours + dernière comptabilisée)", () => {
   const t = (date: string, pending: boolean) => ({
     date,

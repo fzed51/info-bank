@@ -22,6 +22,17 @@ export const historyMonths = 12;
 /** Opérations détaillées publiées : mois courant et `txMonths - 1` précédents. */
 export const txMonths = 3;
 
+/**
+ * Tri de la plus récente à la plus ancienne ; à date égale, les opérations en cours
+ * (les plus récentes, pas encore comptabilisées) passent avant les enregistrées.
+ */
+export const compareRecentFirst = (
+  a: { date: string; status: "booked" | "pending" },
+  b: { date: string; status: "booked" | "pending" },
+): number =>
+  b.date.localeCompare(a.date) ||
+  Number(b.status === "pending") - Number(a.status === "pending");
+
 /** IBAN masqué : « FR57 •••• E47 ». */
 export const maskIban = (iban: string): string =>
   iban.length > 7 ? `${iban.slice(0, 4)} •••• ${iban.slice(-3)}` : iban;
@@ -133,7 +144,7 @@ export function buildPayload(
     );
     const transactions = source.txs
       .filter((t) => t.date >= txSince)
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort(compareRecentFirst)
       .map((t) => ({
         date: t.date,
         label: t.label,

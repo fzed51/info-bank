@@ -3,6 +3,7 @@ import { amountClass, formatCents, formatShortDate } from "../../app/format.ts";
 import type { BackofficeData } from "../../build/backoffice-api.ts";
 import { addDays, periodOf, periodRange } from "../../core/dates.ts";
 import { matchOccurrences } from "../../core/matching.ts";
+import { compareRecentFirst } from "../../core/payload.ts";
 
 interface Props {
   account: string;
@@ -31,7 +32,7 @@ export function OperationsPanel({ account, data }: Props) {
     for (const o of occurrences) if (o.txId) ruleOfTx.set(o.txId, o.name);
     return data.txs
       .filter((t) => t.account === account && t.date >= since)
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort(compareRecentFirst)
       .map((t) => ({ t, rule: ruleOfTx.get(t.id) }));
   }, [data, account, since]);
 
