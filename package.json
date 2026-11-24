@@ -1,6 +1,6 @@
 {
   "name": "info-bank",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "PWA mobile : solde, évolution et projection de fin de mois, données chiffrées",
   "private": true,
   "type": "module",
