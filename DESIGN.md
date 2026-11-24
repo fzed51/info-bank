@@ -79,10 +79,10 @@ Polices auto-hébergées (paquets `@fontsource`, licence OFL) : compatibles avec
 
 ## 6 bis. Logo et icônes
 
-Une page de registre sur un carreau `--paper` : marge `--margin`, trois lignes `--rule`, double trait de total `--rule-strong`, courbe d'encre `--ink` qui monte vers un point `--ink-accent` détaché par un liseré papier. Une seule source, `scripts/make-icons.ts` (`npm run icons`), produit tout `public/icons/` :
+Une feuille de registre cernée d'un trait `--ink` sur un carreau `--paper` : marge `--margin`, trois lignes de saisie `--ink` (les deux dernières interrompues pour laisser la place du montant), trait de total `--ink` près du bas, courbe d'encre `--ink` qui monte vers un point `--ink-accent`. Traits à bouts arrondis. Le logo n'utilise que quatre couleurs (papier, marge, encre, accent) et aucun effet : la texture d'encre (filtre SVG) de la maquette d'origine a été retirée, car la rastérisation du script ne sait pas la rendre et le SVG doit rester identique aux PNG. Une seule source, `scripts/make-icons.ts` (`npm run icons`), produit tout `public/icons/` :
 
 - `logo.svg` : carreau aux coins arrondis (rayon 112/512) ; aussi déclaré dans le manifeste (`sizes: any`).
-- `favicon.svg` et `favicon-32.png` : version simplifiée lisible à 16 px (marge, courbe et point plus épais, sans lignes ni trait de total). Le backoffice l'utilise aussi.
+- `favicon.svg` et `favicon-32.png` : version simplifiée lisible à 16 px (feuille agrandie, traits, courbe et point plus épais, point détaché par un liseré papier, sans lignes de saisie ni trait de total). Le backoffice l'utilise aussi.
 - `icon-192.png`, `icon-512.png` : carreau arrondi, coins transparents (`purpose: any`).
 - `icon-maskable-512.png` : fond plein, dessin réduit à 80 % (zone sûre des icônes masquables).
 - `apple-touch-icon.png` (180 px) : fond plein et opaque, iOS arrondit lui-même.

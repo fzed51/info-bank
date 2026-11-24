@@ -1,8 +1,9 @@
 // Génère le logo et les icônes de la PWA depuis une seule description géométrique :
 // SVG (logo, favicon) et PNG (manifeste, Apple), sans dépendance — rastérisation avec
 // suréchantillonnage et encodage PNG via node:zlib.
-// Dessin : page de registre (marge rouge, lignes, double trait de total) et courbe
-// d'encre qui monte vers un point bleu. Couleurs : thème clair de DESIGN.md.
+// Dessin : feuille de registre cernée d'un trait (marge rouge, lignes de saisie, trait
+// de total) et courbe d'encre qui monte vers un point bleu. Couleurs : thème clair de
+// DESIGN.md.
 // Usage : npm run icons
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,8 +11,6 @@ import { crc32, deflateSync } from "node:zlib";
 
 const colors = {
   paper: "#F4EEDF",
-  rule: "#D6CAB0",
-  ruleStrong: "#8F7F62",
   margin: "#D99A8C",
   ink: "#2A241E",
   accent: "#2A4A7F",
@@ -39,45 +38,59 @@ const roundRect = (size: number, r: number, color: string): Shape => ({
   color,
 });
 
-/** Trait horizontal ou vertical, bouts carrés. */
-const rule = (
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
+type Point = [number, number];
+
+/** Le point (px, py) est-il à moins de `radius` de la ligne brisée ? */
+const nearPath = (
+  points: Point[],
+  radius: number,
+  px: number,
+  py: number,
+): boolean =>
+  points.slice(1).some(([bx, by], i) => {
+    const [ax, ay] = points[i];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(
+      0,
+      Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)),
+    );
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy)) <= radius;
+  });
+
+/** Ligne brisée, bouts et jonctions arrondis. */
+const polyline = (points: Point[], width: number, color: string): Shape => ({
+  svg: `<polyline points="${points.map((p) => p.join(",")).join(" ")}" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
+  hit: (px, py) => nearPath(points, width / 2, px, py),
+  color,
+});
+
+/** Courbe de Bézier cubique, bouts arrondis (échantillonnée pour la rastérisation). */
+const curve = (
+  from: Point,
+  c1: Point,
+  c2: Point,
+  to: Point,
   width: number,
   color: string,
 ): Shape => {
-  const h = width / 2;
-  const [xa, xb] = y1 === y2 ? [x1, x2] : [x1 - h, x1 + h];
-  const [ya, yb] = y1 === y2 ? [y1 - h, y1 + h] : [y1, y2];
+  const steps = 64;
+  const points = Array.from({ length: steps + 1 }, (_, i): Point => {
+    const t = i / steps;
+    const u = 1 - t;
+    const at = (k: 0 | 1): number =>
+      u ** 3 * from[k] +
+      3 * u * u * t * c1[k] +
+      3 * u * t * t * c2[k] +
+      t ** 3 * to[k];
+    return [at(0), at(1)];
+  });
   return {
-    svg: `<path d="M${x1} ${y1}L${x2} ${y2}" stroke="${color}" stroke-width="${width}"/>`,
-    hit: (px, py) => px >= xa && px <= xb && py >= ya && py <= yb,
+    svg: `<path d="M${from.join(" ")}C${[c1, c2, to].map((p) => p.join(" ")).join(",")}" stroke="${color}" stroke-width="${width}" stroke-linecap="round" fill="none"/>`,
+    hit: (px, py) => nearPath(points, width / 2, px, py),
     color,
   };
 };
-
-/** Ligne brisée, bouts et jonctions arrondis. */
-const polyline = (
-  points: [number, number][],
-  width: number,
-  color: string,
-): Shape => ({
-  svg: `<polyline points="${points.map((p) => p.join(",")).join(" ")}" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
-  hit: (px, py) =>
-    points.slice(1).some(([bx, by], i) => {
-      const [ax, ay] = points[i];
-      const dx = bx - ax;
-      const dy = by - ay;
-      const t = Math.max(
-        0,
-        Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)),
-      );
-      return Math.hypot(px - (ax + t * dx), py - (ay + t * dy)) <= width / 2;
-    }),
-  color,
-});
 
 const circle = (cx: number, cy: number, r: number, color: string): Shape => ({
   svg: `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`,
@@ -90,46 +103,94 @@ interface Variant {
   corner: number;
   /** Échelle du dessin autour du centre (zone sûre des icônes masquables). */
   scale: number;
-  /** Version simplifiée, lisible à 16 px (favicon) : ni lignes ni trait de total. */
+  /** Version simplifiée, lisible à 16 px (favicon) : traits épaissis, sans lignes de saisie. */
   simple: boolean;
 }
+
+/** Contour d'un rectangle, jonctions arrondies. */
+const outline = (
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  width: number,
+  color: string,
+): Shape =>
+  polyline(
+    [
+      [x1, y1],
+      [x2, y1],
+      [x2, y2],
+      [x1, y2],
+      [x1, y1],
+    ],
+    width,
+    color,
+  );
 
 /** Contenu du logo dans le repère `side` × `side`, peint dans l'ordre. */
 function drawing(simple: boolean): Shape[] {
   const c = colors;
   if (simple)
     return [
-      rule(150, 40, 150, 472, 32, c.margin),
+      outline(100, 64, 412, 448, 28, c.ink),
       polyline(
         [
-          [206, 368],
-          [276, 262],
-          [334, 312],
-          [404, 176],
+          [148, 92],
+          [148, 420],
         ],
-        60,
-        c.ink,
+        20,
+        c.margin,
       ),
-      circle(404, 160, 72, c.paper),
-      circle(404, 160, 54, c.accent),
+      curve([190, 380], [262, 356], [322, 300], [338, 222], 36, c.ink),
+      circle(344, 166, 46, c.paper),
+      circle(344, 166, 34, c.accent),
     ];
   return [
-    ...[200, 272, 344].map((y) => rule(96, y, 416, y, 8, c.rule)),
-    rule(150, 64, 150, 448, 12, c.margin),
-    rule(186, 400, 416, 400, 8, c.ruleStrong),
-    rule(186, 420, 416, 420, 8, c.ruleStrong),
+    outline(136, 91, 376, 421, 7, c.ink),
     polyline(
       [
-        [198, 328],
-        [264, 246],
-        [316, 286],
-        [384, 164],
+        [136, 408],
+        [376, 408],
       ],
-      30,
+      7,
       c.ink,
     ),
-    circle(384, 140, 46, c.paper),
-    circle(384, 140, 32, c.accent),
+    polyline(
+      [
+        [168, 94.5],
+        [168, 404.5],
+      ],
+      6,
+      c.margin,
+    ),
+    // Lignes de saisie : libellé, puis montant (les trous laissent la place du texte).
+    ...(
+      [
+        [[184, 170, 312.5]],
+        [
+          [184, 226, 311],
+          [333, 226, 347],
+        ],
+        [
+          [184, 282, 279],
+          [303, 282, 347],
+        ],
+      ] as [number, number, number][][]
+    )
+      .flat()
+      .map(([x1, y, x2]) =>
+        polyline(
+          [
+            [x1, y],
+            [x2, y],
+          ],
+          5,
+          c.ink,
+        ),
+      ),
+    curve([187, 348], [255, 322.5], [305, 272.5], [333, 188], 6, c.ink),
+    circle(340, 168, 19, c.accent),
   ];
 }
 
