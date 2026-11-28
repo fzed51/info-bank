@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Comptes</title>
+  <rect width="512" height="512" rx="112" fill="#F4EEDF"/>
+  <g>
+    <polyline points="100,64 412,64 412,448 100,448 100,64" stroke="#2A241E" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <polyline points="148,92 148,420" stroke="#D99A8C" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M190 380C262 356,322 300,338 222" stroke="#2A241E" stroke-width="36" stroke-linecap="round" fill="none"/>
+    <circle cx="344" cy="166" r="46" fill="#F4EEDF"/>
+    <circle cx="344" cy="166" r="34" fill="#2A4A7F"/>
+  </g>
+</svg>
